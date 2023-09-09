@@ -6,46 +6,45 @@
         <input type="number" id="h" min="2" max="25" v-model.number="inputHeight">
         B
         <input type="number" id="b" min="1" :max="mineMaxNum" v-model.number="inputMine">
-        <span class="bombCount">0</span>
     </div>
-    <div id="setting2">
-        <div id="btn">
-            START
+
+        <div class="status-bar">
+            <div class="counters">
+                <div class="counter">
+                    <!-- {{ timer }} -->
+                </div>
+                <div class="counter">
+                    {{ restMinesNum }}
+                </div>
+            </div>
+            <div id="start-btn" @click="resetSetting()">
+                {{ startButtonText }}
+            </div>
+            <router-link to="/HelloWorld">設定</router-link>
         </div>
-        <span id="time" class="timer">000</span>
-    </div>
-    <table id="board">
-    </table>
-    <h3 id="result"></h3>
-    <div id="text">
-        <h3>
-            設定
-        </h3>
-        <p>W: 横のマスの数</p>
-        <p>H: 縦のマスの数</p>
-        <p>B: 爆弾の数</p>
-        <h3>
-            操作
-        </h3>
-        <p>左クリック: マスを開ける</p>
-        <p>右クリック: <span class="flag"></span>マークを付ける</p>
-    </div>
-    <status-bar @init="init" />
-    <board :width="width" :height="height" :mine="mine"/>
+        <table id="board" style="pointer-events; auto;">
+            <tr id="row" v-for="(row, x) in rows" :key="x">
+                <cell v-for="(point, y) in row" :key="y" :cell="point" @left-click="openCell(x, y)"
+                    @right-click="setFlagToCell(x, y)" ref="cells">
+                </cell>
+            </tr>
+        </table>
 </template>
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
-// import { Watch } from 'vue-property-decorator';
-import Board from '@/components/modules/Board.vue';
-import StatusBar from '@/components/modules/StatusBar.vue';
+import Cell from '@/components/modules/Cell.vue';
+import type CellInterface from '@/script/CellInterface';
+import ProgressGame from '@/script/ProgressGame';
+
 
 @Options({
     components: {
-        Board,
-        StatusBar
+        Cell
     }
 })
+
+
 export default class Game extends Vue {
     // 実際の盤面の幅・高さ・爆弾の数
     width: number = 9;
@@ -57,32 +56,151 @@ export default class Game extends Vue {
     inputHeight: number = 9;
     inputMine: number = 10;
 
-    // @Watch('inputWidth')
-    // onTextChanged(newText: number) {
-    //     this.inputWidth = newText > 50 ? 50 : newText < 1 ? 1 : newText;
-    // }
+    // 盤面の各セルの情報を持つ2次元配列
+    rows: CellInterface[][] = [];
+
+    startButtonText: string = "Reset";
+
+    isFirstClick: boolean = true;
+
     
-    get mineMaxNum(){
+    progressGame = new ProgressGame(this.height, this.width, this.mine);
+
+    // 読み込み時に一旦盤面を作る（見せる用）
+    mounted() {
+        this.rows = this.progressGame.initRows();
+    }
+
+    // 爆弾の最大数
+    get mineMaxNum() {
         return Math.min(this.inputWidth * this.inputHeight - 9, 999)
     }
 
-    init() {
-        this.width = this.inputWidth;
-        this.height = this.inputHeight;
-        this.mine = this.inputMine;
+    // 空いている数
+    get opendCellsNum() {
+        let countOpendCells: number = 0;
+        this.rows.forEach(row => countOpendCells = countOpendCells + row.filter(cell => cell.isOpen).length);
+        return countOpendCells;
     }
 
-    leftClicked(x: number, y: number){
-        console.log('Game leftClicked x:' + x + ' y:' + y);
-        this.inputWidth = x;
-        this.inputHeight = y;
+    // 立っている旗の数に対しての残り爆弾数
+    get restMinesNum() {
+        let countFlagCells: number = 0;
+        this.rows.forEach(row => countFlagCells = countFlagCells + row.filter(cell => cell.isFlag).length);
+        return this.mine - countFlagCells;
     }
 
-    rightClicked(x: number, y: number) {
+    // 設定を反映する
+    resetSetting() {
+        console.log('Game reflectSetting firstClick:' + this.isFirstClick);
+        this.progressGame = new ProgressGame(this.inputHeight, this.inputWidth, this.inputMine);
+        this.rows = this.progressGame.initRows();
+        this.isFirstClick = true;
+        this.startButtonText = "Reset";
+    }
+
+
+    // 左クリック -> UI側での名前がそのまま使われている openCell とか名前を変えると自然と処理の中身が分離される
+    openCell(x: number, y: number) {
+        console.log('Game openCell x:' + x + ' y:' + y);
+
+        // マスが空いている・旗が立っているときは処理を行わない
+        if (this.rows[x][y].isOpen || this.rows[x][y].isFlag) {
+            return;
+        }
+
+        // 1手目のときは盤面の初期設定を行う
+        if (this.isFirstClick) {
+            this.progressGame.putMines(x, y, this.rows);
+            this.progressGame.setMinesCount(this.rows);
+            this.isFirstClick = false
+        }
+
+        // 爆弾を踏んでしまった場合
+        if (this.rows[x][y].hasMine) {
+            console.log("pushMine");
+            this.startButtonText = "Lose";
+            this.rows.forEach(row => row.forEach(cell => cell.isOpen = true));
+            return;
+        }
+
+        // マスを開ける処理
+        this.rows[x][y].isOpen = true;
+        // 空のマスなら上下左右も開ける処理に移行
+        if (this.rows[x][y].mineCount === "") {
+            this.progressGame.openAroundCells(x, y, this.rows)
+        }
+
+        // クリアしたか判定する
+        if (this.opendCellsNum === this.progressGame.canBeOpenedCellNum) {
+            this.startButtonText = "Clear";
+            this.rows.forEach(row => row.forEach(cell => cell.isOpen = true));
+        }
+        console.log('opendCellsNum:' + this.opendCellsNum)
+    }
+
+    // 右クリック
+    setFlagToCell(x: number, y: number) {
         console.log('Game rightClicked x:' + x + ' y:' + y);
-        this.inputWidth = y;
-        this.inputHeight = x;
+        // 最初の左クリックがまだなら、処理を終了
+        if (this.isFirstClick) {
+            return;
+        }
+        // 既に空いているマスなら無視をする
+        if (this.rows[x][y].isOpen) {
+            return;
+        }
+        // 旗の数が爆弾の数と同じで、それ以上旗を立てようとしていたら処理を行わない
+        if (this.restMinesNum === 0 && !this.rows[x][y].isFlag) {
+            return;
+        }
+        // 旗が立っていたら下げて、下がっていたら立てる
+        this.rows[x][y].isFlag = !this.rows[x][y].isFlag;
     }
 
 }
 </script>
+
+<style scoped>
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+    width: 400px;
+    margin: 0 auto;
+}
+
+.counters {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.counter {
+    color: #fff;
+    border: solid 1px #fff;
+    text-align: right;
+    width: 50px;
+    padding: 5px;
+    background-color: black;
+}
+
+#start-btn {
+    width: 30%;
+    margin: 3px auto;
+    padding: 2px;
+    font-weight: bold;
+    text-align: center;
+    color: white;
+    border: solid 1px black;
+    background: black;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+td {
+    border: solid 3px white;
+    width: 30px;
+    height: 30px;
+    font-weight: bold;
+    text-align: center;
+}
+</style>@/assets/CellInterface.js
