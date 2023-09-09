@@ -2,11 +2,13 @@ import Vue from 'vue'
 import { createRouter,createWebHistory } from 'vue-router';
 
 
-import Game from '@/components/pages/Game.vue';    /*後ほど作成するファイルです*/
+import Game from '@/components/pages/Game.vue';
+import Setting from '@/components/pages/Setting.vue';
 import HelloWorld from '@/components/HelloWorld.vue';  /*後ほど作成するファイルです*/
 
 const routes = [
-  { path: '/Game', component: Game },
+  { path: '', component: Game },
+  { path: '/Setting', component: Setting },
   { path: '/HelloWorld', component: HelloWorld }
 ]
 const router = createRouter({
