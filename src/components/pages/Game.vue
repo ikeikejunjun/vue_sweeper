@@ -11,7 +11,7 @@
         <div class="status-bar">
             <div class="counters">
                 <div class="counter">
-                    <!-- {{ timer }} -->
+                    {{ timer.playTime }}
                 </div>
                 <div class="counter">
                     {{ restMinesNum }}
@@ -36,6 +36,7 @@ import { Options, Vue } from 'vue-class-component';
 import Cell from '@/components/modules/Cell.vue';
 import type CellInterface from '@/script/CellInterface';
 import ProgressGame from '@/script/ProgressGame';
+import Timer from '@/script/Timer';
 
 
 @Options({
@@ -60,11 +61,9 @@ export default class Game extends Vue {
     rows: CellInterface[][] = [];
 
     startButtonText: string = "Reset";
-
-    isFirstClick: boolean = true;
-
     
     progressGame = new ProgressGame(this.height, this.width, this.mine);
+    timer = new Timer();
 
     // 読み込み時に一旦盤面を作る（見せる用）
     mounted() {
@@ -77,7 +76,7 @@ export default class Game extends Vue {
     }
 
     // 空いている数
-    get opendCellsNum() {
+    get openedCellsNum() {
         let countOpendCells: number = 0;
         this.rows.forEach(row => countOpendCells = countOpendCells + row.filter(cell => cell.isOpen).length);
         return countOpendCells;
@@ -92,11 +91,11 @@ export default class Game extends Vue {
 
     // 設定を反映する
     resetSetting() {
-        console.log('Game reflectSetting firstClick:' + this.isFirstClick);
+        console.log('Game resetSetting');
         this.progressGame = new ProgressGame(this.inputHeight, this.inputWidth, this.inputMine);
         this.rows = this.progressGame.initRows();
-        this.isFirstClick = true;
         this.startButtonText = "Reset";
+        this.timer.reset();
     }
 
 
@@ -110,10 +109,11 @@ export default class Game extends Vue {
         }
 
         // 1手目のときは盤面の初期設定を行う
-        if (this.isFirstClick) {
+        if (this.openedCellsNum === 0) {
             this.progressGame.putMines(x, y, this.rows);
             this.progressGame.setMinesCount(this.rows);
-            this.isFirstClick = false
+
+            this.timer.start();
         }
 
         // 爆弾を踏んでしまった場合
@@ -121,6 +121,7 @@ export default class Game extends Vue {
             console.log("pushMine");
             this.startButtonText = "Lose";
             this.rows.forEach(row => row.forEach(cell => cell.isOpen = true));
+            this.timer.stop();
             return;
         }
 
@@ -132,18 +133,19 @@ export default class Game extends Vue {
         }
 
         // クリアしたか判定する
-        if (this.opendCellsNum === this.progressGame.canBeOpenedCellNum) {
+        if (this.openedCellsNum === this.progressGame.canBeOpenedCellNum) {
             this.startButtonText = "Clear";
             this.rows.forEach(row => row.forEach(cell => cell.isOpen = true));
+            this.timer.stop();
         }
-        console.log('opendCellsNum:' + this.opendCellsNum)
+        console.log('opendCellsNum:' + this.openedCellsNum)
     }
 
     // 右クリック
     setFlagToCell(x: number, y: number) {
         console.log('Game rightClicked x:' + x + ' y:' + y);
         // 最初の左クリックがまだなら、処理を終了
-        if (this.isFirstClick) {
+        if (this.openedCellsNum === 0) {
             return;
         }
         // 既に空いているマスなら無視をする
@@ -203,4 +205,4 @@ td {
     font-weight: bold;
     text-align: center;
 }
-</style>@/assets/CellInterface.js
+</style>
