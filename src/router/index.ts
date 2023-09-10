@@ -7,8 +7,8 @@ import Setting from '@/components/pages/Setting.vue';
 import HelloWorld from '@/components/HelloWorld.vue';  /*後ほど作成するファイルです*/
 
 const routes = [
-  { path: '/', component: Game },
-  { path: '/Setting', component: Setting },
+  { path: '/:width?/:height?/:mine?', component: Game},
+  { path: '/Setting/:width/:height/:mine', component: Setting},
   { path: '/HelloWorld', component: HelloWorld }
 ]
 const router = createRouter({

@@ -1,34 +1,34 @@
 <template>
     <div id="setting">
         W
-        <input type="number" id="w" min="2" max="50" v-model.number="inputWidth">
+        <input type="number" id="w" min="2" max="50" v-model.number="width">
         H
-        <input type="number" id="h" min="2" max="25" v-model.number="inputHeight">
+        <input type="number" id="h" min="2" max="25" v-model.number="height">
         B
-        <input type="number" id="b" min="1" :max="mineMaxNum" v-model.number="inputMine">
+        <input type="number" id="b" min="1" :max="mineMaxNum" v-model.number="mine">
     </div>
 
-        <div class="status-bar">
-            <div class="counters">
-                <div class="counter">
-                    <!-- {{ timer }} -->
-                </div>
-                <div class="counter">
-                    {{ restMinesNum }}
-                </div>
+    <div class="status-bar">
+        <div class="counters">
+            <div class="counter">
+                {{ timer.playTime }}
             </div>
-            <div id="start-btn" @click="resetSetting()">
-                {{ startButtonText }}
+            <div class="counter">
+                {{ restMinesNum }}
             </div>
-            <router-link to="/HelloWorld">設定</router-link>
         </div>
-        <table id="board" style="pointer-events; auto;">
-            <tr id="row" v-for="(row, x) in rows" :key="x">
-                <cell v-for="(point, y) in row" :key="y" :cell="point" @left-click="openCell(x, y)"
-                    @right-click="setFlagToCell(x, y)" ref="cells">
-                </cell>
-            </tr>
-        </table>
+        <div class="btn" id="start-btn" @click="resetSetting()">
+            {{ startButtonText }}
+        </div>
+        <router-link class="btn" id="setting-btn" :to="settingButtonUrl">設定</router-link>
+    </div>
+    <table id="board" style="pointer-events; auto;">
+        <tr id="row" v-for="(row, x) in rows" :key="x">
+            <cell v-for="(point, y) in row" :key="y" :cell="point" @left-click="openCell(x, y)"
+                @right-click="setFlagToCell(x, y)" ref="cells">
+            </cell>
+        </tr>
+    </table>
 </template>
 
 <script lang="ts">
@@ -36,48 +36,54 @@ import { Options, Vue } from 'vue-class-component';
 import Cell from '@/components/modules/Cell.vue';
 import type CellInterface from '@/script/CellInterface';
 import ProgressGame from '@/script/ProgressGame';
+import Timer from '@/script/Timer';
 
 
 @Options({
     components: {
         Cell
+    },
+    props: {
+        width: Number,
+        height: Number,
+        mine: Number,
     }
 })
 
 
 export default class Game extends Vue {
     // 実際の盤面の幅・高さ・爆弾の数
+    // width: number = 9;
+    // height: number = 9;
+    // mine: number = 10;
     width: number = 9;
     height: number = 9;
     mine: number = 10;
-
-    // 入力用の幅・高さ・爆弾の数
-    inputWidth: number = 9;
-    inputHeight: number = 9;
-    inputMine: number = 10;
 
     // 盤面の各セルの情報を持つ2次元配列
     rows: CellInterface[][] = [];
 
     startButtonText: string = "Reset";
 
-    isFirstClick: boolean = true;
-
-    
-    progressGame = new ProgressGame(this.height, this.width, this.mine);
+    progressGame: ProgressGame = new ProgressGame(this.height, this.width, this.mine)
+    timer = new Timer();
 
     // 読み込み時に一旦盤面を作る（見せる用）
     mounted() {
+        this.width = Number(this.$route.params.width) == 0 ? 9 : Number(this.$route.params.width);
+        this.height = Number(this.$route.params.height) == 0 ? 9: Number(this.$route.params.height);
+        this.mine = Number(this.$route.params.mine) == 0 ? 10: Number(this.$route.params.mine);
+        this.progressGame = new ProgressGame(this.height, this.width, this.mine)
         this.rows = this.progressGame.initRows();
     }
 
     // 爆弾の最大数
     get mineMaxNum() {
-        return Math.min(this.inputWidth * this.inputHeight - 9, 999)
+        return Math.min(this.width * this.height - 9, 999)
     }
 
     // 空いている数
-    get opendCellsNum() {
+    get openedCellsNum() {
         let countOpendCells: number = 0;
         this.rows.forEach(row => countOpendCells = countOpendCells + row.filter(cell => cell.isOpen).length);
         return countOpendCells;
@@ -90,13 +96,17 @@ export default class Game extends Vue {
         return this.mine - countFlagCells;
     }
 
+    get settingButtonUrl() {
+        return "/Setting/" + this.width + "/" + this.height + "/" + this.mine;
+    }
+
     // 設定を反映する
     resetSetting() {
-        console.log('Game reflectSetting firstClick:' + this.isFirstClick);
-        this.progressGame = new ProgressGame(this.inputHeight, this.inputWidth, this.inputMine);
+        console.log('Game resetSetting');
+        this.progressGame = new ProgressGame(this.height, this.width, this.mine);
         this.rows = this.progressGame.initRows();
-        this.isFirstClick = true;
         this.startButtonText = "Reset";
+        this.timer.reset();
     }
 
 
@@ -110,10 +120,11 @@ export default class Game extends Vue {
         }
 
         // 1手目のときは盤面の初期設定を行う
-        if (this.isFirstClick) {
+        if (this.openedCellsNum === 0) {
             this.progressGame.putMines(x, y, this.rows);
             this.progressGame.setMinesCount(this.rows);
-            this.isFirstClick = false
+
+            this.timer.start();
         }
 
         // 爆弾を踏んでしまった場合
@@ -121,6 +132,7 @@ export default class Game extends Vue {
             console.log("pushMine");
             this.startButtonText = "Lose";
             this.rows.forEach(row => row.forEach(cell => cell.isOpen = true));
+            this.timer.stop();
             return;
         }
 
@@ -132,18 +144,19 @@ export default class Game extends Vue {
         }
 
         // クリアしたか判定する
-        if (this.opendCellsNum === this.progressGame.canBeOpenedCellNum) {
+        if (this.openedCellsNum === this.progressGame.canBeOpenedCellNum) {
             this.startButtonText = "Clear";
             this.rows.forEach(row => row.forEach(cell => cell.isOpen = true));
+            this.timer.stop();
         }
-        console.log('opendCellsNum:' + this.opendCellsNum)
+        console.log('opendCellsNum:' + this.openedCellsNum)
     }
 
     // 右クリック
     setFlagToCell(x: number, y: number) {
         console.log('Game rightClicked x:' + x + ' y:' + y);
         // 最初の左クリックがまだなら、処理を終了
-        if (this.isFirstClick) {
+        if (this.openedCellsNum === 0) {
             return;
         }
         // 既に空いているマスなら無視をする
@@ -185,15 +198,17 @@ export default class Game extends Vue {
 
 #start-btn {
     width: 30%;
-    margin: 3px auto;
-    padding: 2px;
-    font-weight: bold;
-    text-align: center;
     color: white;
     border: solid 1px black;
     background: black;
-    border-radius: 5px;
-    cursor: pointer;
+}
+
+#setting-btn {
+    width: 15%;
+    margin: 3px auto;
+    color: white;
+    border: solid 1px black;
+    background: blue;
 }
 
 td {
@@ -203,4 +218,4 @@ td {
     font-weight: bold;
     text-align: center;
 }
-</style>@/assets/CellInterface.js
+</style>
