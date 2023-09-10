@@ -1,18 +1,15 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
   <router-view />
 </template>
 
 <script lang="ts">
 import { Options, Vue } from 'vue-class-component';
-import HelloWorld from './components/HelloWorld.vue';
 import Game from './components/pages/Game.vue'; 
 import Setting from './components/pages/Setting.vue'; 
 import './assets/style.css';
 
 @Options({
   components: {
-    HelloWorld,
     Game,
     Setting,
   },
