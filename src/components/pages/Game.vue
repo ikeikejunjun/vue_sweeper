@@ -1,13 +1,4 @@
 <template>
-    <div id="setting">
-        W
-        <input type="number" id="w" min="2" max="50" v-model.number="width">
-        H
-        <input type="number" id="h" min="2" max="25" v-model.number="height">
-        B
-        <input type="number" id="b" min="1" :max="mineMaxNum" v-model.number="mine">
-    </div>
-
     <div class="status-bar">
         <div class="counters">
             <div class="counter">
@@ -53,9 +44,6 @@ import Timer from '@/script/Timer';
 
 export default class Game extends Vue {
     // 実際の盤面の幅・高さ・爆弾の数
-    // width: number = 9;
-    // height: number = 9;
-    // mine: number = 10;
     width: number = 9;
     height: number = 9;
     mine: number = 10;
@@ -75,11 +63,6 @@ export default class Game extends Vue {
         this.mine = Number(this.$route.params.mine) == 0 ? 10: Number(this.$route.params.mine);
         this.progressGame = new ProgressGame(this.height, this.width, this.mine)
         this.rows = this.progressGame.initRows();
-    }
-
-    // 爆弾の最大数
-    get mineMaxNum() {
-        return Math.min(this.width * this.height - 9, 999)
     }
 
     // 空いている数
