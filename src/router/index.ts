@@ -7,12 +7,12 @@ import Setting from '@/components/pages/Setting.vue';
 import HelloWorld from '@/components/HelloWorld.vue';  /*後ほど作成するファイルです*/
 
 const routes = [
-  { path: '', component: Game },
+  { path: '/', component: Game },
   { path: '/Setting', component: Setting },
   { path: '/HelloWorld', component: HelloWorld }
 ]
 const router = createRouter({
-  history: createWebHistory(), // HTML5 History モード
+  history: createWebHistory(process.env.BASE_URL), // HTML5 History モード
   routes,
 })
 export default router

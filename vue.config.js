@@ -1,4 +1,7 @@
 const { defineConfig } = require('@vue/cli-service')
 module.exports = defineConfig({
-  transpileDependencies: true
+  publicPath: '/vue_sweeper', //Default
+  outputDir: 'docs', //Default
+  filenameHashing: false,
+  productionSourceMap: false,
 })
